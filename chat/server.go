@@ -31,7 +31,7 @@ func (s Server) Run() error {
 
 		//	::: launch client
 		s.handleClient(client)
-		client.ServeItself()
+		go client.ServeItself()
 	}
 
 }
@@ -39,17 +39,17 @@ func (s Server) Run() error {
 func (s Server) handleClient(client *Client) {
 
 	msgWelcome := Message{
-		Author:  &Client{name: "Admin"},
+		Author:  &ADMIN,
 		Payload: "Enter room id you want to come in\n",
 	}
 	client.WriteMsg(&msgWelcome)
 
 	roomIDToEnter, err := bufio.NewReader(client.conn).ReadString('\n')
 	roomIDToEnter = strings.Trim(roomIDToEnter, "\r\n")
-	println("Enter room id you want to enter: ", roomIDToEnter)
 	roomId, err := strconv.Atoi(roomIDToEnter)
 	if err != nil {
 		log.Printf("Couldn't convert to int: %s\n", roomIDToEnter)
+		return
 	}
 
 	room := s.roomToEnterById(roomId)
@@ -58,8 +58,8 @@ func (s Server) handleClient(client *Client) {
 		return
 	}
 
-	room.clients = append(room.clients, client)
-
+	println("Enter room id you want to enter: ", roomIDToEnter)
+	room.RegisterNewClient(client)
 }
 
 func (s Server) roomToEnterById(id int) *Room {
@@ -74,9 +74,9 @@ func (s Server) roomToEnterById(id int) *Room {
 
 func NewServer(lis net.Listener) *Server {
 	rooms := make(map[int]*Room)
-	intialRoom := Room{id: 0}
+	intialRoom := &Room{id: 0, clientBus: make(chan *Client), msgBus: make(chan *Message)}
 	go intialRoom.ServerItself()
-	rooms[intialRoom.id] = &intialRoom
+	rooms[intialRoom.id] = intialRoom
 	return &Server{listener: lis, rooms: rooms}
 
 }
